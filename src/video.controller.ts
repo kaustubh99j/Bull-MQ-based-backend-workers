@@ -1,5 +1,5 @@
 import { Controller, Post, Body, FileTypeValidator } from '@nestjs/common';
-import { AppService } from './app.service';
+// import { AppService } from './app.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
@@ -18,6 +18,20 @@ export class VideoController {
     );
     return {
       message: 'Video processing job added to queue!',
+    };
+  }
+
+  @Post('compress')
+  async compressVideo() {
+    await this.videoQueue.add("compress", 
+      {
+        fileName: "best-video", 
+        fileType: "mp4"
+      },
+    
+    );
+    return {
+      message: 'Video is being compressed.',
     };
   }
 }
