@@ -18,64 +18,100 @@ Features
 📝 Store extracted text in PostgreSQL
 🚫 No dependency on local PDF file paths
 Architecture
-                         ┌─────────────────┐
-                         │     Browser     │
-                         │   PDF Upload    │
-                         └────────┬────────┘
-                                  │
-                                  │ POST /api/documents
-                                  ▼
-                         ┌─────────────────┐
-                         │    Next.js API  │
-                         │      Route      │
-                         └────────┬────────┘
-                                  │
-                             PDF → Buffer
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │   PostgreSQL    │
-                         │                 │
-                         │    Document     │
-                         │ ┌─────────────┐ │
-                         │ │ pdfData     │ │
-                         │ │ status      │ │
-                         │ │ progress    │ │
-                         │ │ extractedText│ │
-                         │ └─────────────┘ │
-                         └────────┬────────┘
-                                  │
-                             documentId
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │     BullMQ      │
-                         │      Queue      │
-                         └────────┬────────┘
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │      Redis      │
-                         │   Queue Backend │
-                         └────────┬────────┘
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │ Document Worker │
-                         │                 │
-                         │    PDFParse     │
-                         └────────┬────────┘
-                                  │
-                            Extracted Text
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │   PostgreSQL    │
-                         │                 │
-                         │ extractedText   │
-                         │ status=COMPLETED│
-                         │ progress=100    │
-                         └─────────────────┘
+                    Architecture
+Upload PDF
+Validate PDF
+Store PDF bytes
+Create documentId job
+Fetch pdfData
+PDF Buffer
+Extracted Text
+Update status & progress
+Save extractedText
+Browser
+Next.js API
+Convert to Buffer
+(PostgreSQL)
+BullMQ Queue
+(Redis)
+Document Worker
+PDFParse
+Document Data
+Processing Flow
+sequenceDiagram
+    participant U as Browser
+    participant API as Next.js API
+    participant DB as PostgreSQL
+    participant Q as BullMQ
+    participant R as Redis
+    participant W as Worker
+    participant P as PDFParse
+
+    U->>API: Upload PDF
+    API->>API: Validate file
+    API->>DB: Store pdfData
+    API->>Q: Add documentId job
+    Q->>R: Store job
+
+    API-->>U: 201 Created
+
+    R->>W: Process job
+    W->>DB: Fetch pdfData
+    DB-->>W: PDF bytes
+
+    W->>P: Parse PDF
+    P-->>W: Extracted text
+
+    W->>DB: Save extractedText
+    W->>DB: status = COMPLETED
+    W->>DB: progress = 100
+
+Document Lifecycle
+stateDiagram-v2
+    [*] --> QUEUED
+
+    QUEUED --> PROCESSING
+
+    PROCESSING --> COMPLETED
+    PROCESSING --> FAILED
+
+    COMPLETED --> [*]
+    FAILED --> [*]
+
+System Components
+Component	Responsibility
+Browser	Upload PDF and display document status
+Next.js API	Validate uploads, store PDFs, create jobs
+PostgreSQL	Store PDFs, metadata, processing state, and extracted text
+Prisma	Database access and migrations
+BullMQ	Manage asynchronous document-processing jobs
+Redis	Backend for BullMQ
+Document Worker	Process queued documents
+PDFParse	Extract text from PDF files
+Data Flow
+PDF Upload
+    ↓
+Next.js API
+    ↓
+Buffer
+    ↓
+PostgreSQL
+    │
+    └── pdfData
+         │
+         └── documentId
+                ↓
+             BullMQ
+                ↓
+              Redis
+                ↓
+         Document Worker
+                ↓
+            PDFParse
+                ↓
+         extractedText
+                ↓
+           PostgreSQL
 
 Processing Flow
 1. Upload
@@ -563,12 +599,4 @@ Potential improvements include:
 📡 Real-time progress updates with WebSockets/SSE
 🧪 Automated tests
 📊 BullMQ monitoring
-License
 
-This project is for educational and development purposes.
-
-Add your preferred license here before distributing the project publicly.
-
-:::
-
-This README reflects the **current architecture** rather than the old `filePath`-based implementation, so it should be a good repository-level document for the project.
