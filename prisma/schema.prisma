@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  filename      String
+  originalName  String
+  pdfData       Bytes?
+
+  status        DocumentStatus @default(QUEUED)
+
+  extractedText String?  @db.Text
+
+  progress      Int      @default(0)
+
+  attempts      Int      @default(0)
+
+  errorMessage  String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+}
+
+enum DocumentStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
